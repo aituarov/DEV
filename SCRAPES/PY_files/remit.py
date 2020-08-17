@@ -11,6 +11,7 @@ import shutil
 import numpy as np
 import pandas as pd
 from lxml import html
+import re
 
 chrome_options = Options()
 driver = webdriver.Chrome(options = chrome_options)
@@ -71,13 +72,12 @@ def convert_html_files_to_df(folder):
     return data
 
 
-def compare_df(old_data, new_data):
+def compare_df(old_data, new_data, comp_id):
     comparison = {}
     
     old_uniq_data = {}
     new_uniq_data = {}
-    comp_id = 1
-    
+ 
     for key in new_data.keys():
         print("Comparing files starting with " + str(key))
         data = pd.DataFrame()
@@ -99,7 +99,7 @@ def compare_df(old_data, new_data):
             df_new_match = new_uniq_data[key].loc[new_uniq_data[key]['Unit'] == row['Unit']]
 
             if row['counts_x'] == row['counts_y'] == 1:
-                df_stat = pd.DataFrame([['UPDATED', compid]], columns=['status', 'comp_id'])
+                df_stat = pd.DataFrame([['UPDATED', comp_id]], columns=['status', 'comp_id'])
                 data = data.append(pd.concat([pd.concat([df_stat, df_old_match], axis=1), pd.concat([df_stat, df_new_match], axis=1)], axis=0))
 
             elif row['counts_x'] >= 1 and pd.isna(row['counts_y']):
@@ -113,8 +113,6 @@ def compare_df(old_data, new_data):
             else:
                 df_stat = pd.DataFrame([[float('NaN'), float('NaN')]], columns=['status', 'comp_id'])
                 data = data.append(pd.concat([df_stat, df_new_match], axis=1))
-
-            comp_id+=1
         
         comparison[key] = data
         
@@ -125,11 +123,18 @@ def compare_df(old_data, new_data):
 def main():
     download_snapshots()
     time.sleep(2)
+    if not os.listdir(REMIT_output):
+        comp_id = 1
+    else:
+        exist_comp_ids = [int(re.match("^\d+", file)[0]) for file in os.listdir(REMIT_output)]
+        comp_id = max(exist_comp_ids) + 1
+        print(comp_id)
+
 
     old_data = convert_html_files_to_df(REMIT_data)
     new_data = convert_html_files_to_df(DATAFILES_DIR)
 
-    comparison = compare_df(old_data, new_data)
+    comparison = compare_df(old_data, new_data, comp_id)
     remit_output = pd.DataFrame()
     for key in comparison.keys():
         remit_output = remit_output.append(comparison[key])
@@ -155,7 +160,7 @@ def main():
                 os.remove(DATAFILES_DIR + file_name)
                 print("File starting with " + str(key) + " removed from " + DATAFILES_DIR)
 
-    remit_output.to_excel(REMIT_output + "remit_output__" + datetime.today().strftime('%Y%m%d') + ".xlsx", index=False)
+    remit_output.to_excel(REMIT_output + str(comp_id) + "__remit_output__" + datetime.today().strftime('%Y%m%d') + ".xlsx", index=False)
     print("remit_output file created in " + REMIT_output)
 
 
