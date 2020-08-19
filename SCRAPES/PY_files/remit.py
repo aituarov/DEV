@@ -111,9 +111,14 @@ def compare_df(old_data, new_data, comp_id):
                 data = data.append(pd.concat([df_stat, df_new_match], axis=1))
             
             else:
-                df_stat = pd.DataFrame([[float('NaN'), float('NaN')]], columns=['status', 'comp_id'])
+                df_stat = pd.DataFrame([['NaN', 'NaN']], columns=['status', 'comp_id'])
                 data = data.append(pd.concat([df_stat, df_new_match], axis=1))
         
+        if not data.empty:
+            data[['status', 'comp_id']] = data[['status', 'comp_id']].fillna(method='ffill')
+            data = data.drop(data['Unit']==float('NaN'))
+            data = data.replace('NaN', float('NaN'))
+            
         comparison[key] = data
         
     return comparison
@@ -128,7 +133,6 @@ def main():
     else:
         exist_comp_ids = [int(re.match("^\d+", file)[0]) for file in os.listdir(REMIT_output)]
         comp_id = max(exist_comp_ids) + 1
-        print(comp_id)
 
 
     old_data = convert_html_files_to_df(REMIT_data)
