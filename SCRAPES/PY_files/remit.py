@@ -93,7 +93,6 @@ def compare_df(old_data, new_data, comp_id):
 
         merged_df=old_cnt.merge(new_cnt, how='outer', on='Unit')
         
-        
         for index, row in merged_df.iterrows():
             df_old_match = old_uniq_data[key].loc[old_uniq_data[key]['Unit'] == row['Unit']]
             df_new_match = new_uniq_data[key].loc[new_uniq_data[key]['Unit'] == row['Unit']]
@@ -101,7 +100,7 @@ def compare_df(old_data, new_data, comp_id):
             if row['counts_x'] == row['counts_y'] == 1:
                 df_stat = pd.DataFrame([['UPDATED', comp_id]], columns=['status', 'comp_id'])
                 data = data.append(pd.concat([pd.concat([df_stat, df_old_match], axis=1), pd.concat([df_stat, df_new_match], axis=1)], axis=0))
-
+            
             elif row['counts_x'] >= 1 and pd.isna(row['counts_y']):
                 df_stat = pd.DataFrame([['REMOVED', comp_id]], columns=['status', 'comp_id'])
                 data = data.append(pd.concat([df_stat, df_old_match], axis=1))
@@ -113,12 +112,12 @@ def compare_df(old_data, new_data, comp_id):
             else:
                 df_stat = pd.DataFrame([['NaN', 'NaN']], columns=['status', 'comp_id'])
                 data = data.append(pd.concat([df_stat, df_new_match], axis=1))
-        
+
         if not data.empty:
             data[['status', 'comp_id']] = data[['status', 'comp_id']].fillna(method='ffill')
-            data = data.drop(data['Unit']==float('NaN'))
+            data = data[data['Unit'].notna()]
             data = data.replace('NaN', float('NaN'))
-            
+
         comparison[key] = data
         
     return comparison
@@ -126,7 +125,7 @@ def compare_df(old_data, new_data, comp_id):
             
 
 def main():
-    download_snapshots()
+    # download_snapshots()
     time.sleep(2)
     if not os.listdir(REMIT_output):
         comp_id = 1
