@@ -8,7 +8,9 @@ import pandas as pd
 import numpy as np
 import re
 import time
+import warnings
 
+warnings.filterwarnings("ignore")
 
 
 __author__ = 'aituarov'
@@ -16,11 +18,12 @@ __author__ = 'aituarov'
 
 DB_LOADER_DIR = 'C:\\DEV\\output\\'
 DATAFILES_DIR = 'C:\\DEV\\output\\'
-
 JSON_FILE_DIR = 'C:\\DEV\\'
 
 
-os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r"C:\DEV\GoogleTranslationAPI\TranslationAPI\GoogleCloudKey_AdilbekServiceAccount.json"
+use_translation_api = False
+
+os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = r"C:\DEV\GoogleTranslationAPI\GoogleCloudKey_AdilbekServiceAccount.json"
 translate_client = translate_v2.Client()
 target_language = 'en'
 
@@ -57,7 +60,7 @@ def download_file():
         if file.text.startswith('2-(1)'):
             url = url + file.get('href')
     response = requests.get(url)
-    print("Starting download file from " + url)
+    print("Starting download file " + url)
     file_name = DATAFILES_DIR + 'owner_raw.xlsx'
     with open(file_name, 'wb') as output:
         output.write(response.content)
@@ -78,10 +81,16 @@ def parse_needed_data_from_xl(file_name):
     return raw_data
     
     
-def create_json(raw_data):
-    print("Starting to create json file")
-    myDict = {}
-
+def update_json(raw_data):
+    print("Starting to update json file")
+    if os.path.exists(JSON_FILE_DIR + 'google_translate_v2.json'):
+        print("Find google_translate_v2.json in " + JSON_FILE_DIR)
+        with open(JSON_FILE_DIR + 'google_translate_v2.json') as j:
+            myDict = json.load(j)
+    else:
+        print("Can't find google_translate_v2.json file in " + JSON_FILE_DIR + '\nCreating new json file...')
+        myDict = {}
+    
     for key in raw_data.keys():
         for row in range(raw_data[key].shape[0]):
             for col in range(raw_data[key].shape[1]):
@@ -90,22 +99,23 @@ def create_json(raw_data):
                     myDict[new_string] = translate_client.translate(
                         new_string,
                         target_language=target_language
-                        )["translatedText"]
-
-                    
+                        )["translatedText"]           
     
     with open(JSON_FILE_DIR + 'google_translate_v2.json', "w") as outfile:
         json.dump(myDict, outfile)
-    print("JSON file successfully created.")
+    print("JSON file successfully updated.")
         
     
-def json_to_dictionary(str):
-    with open(JSON_FILE_DIR + 'google_translate_v2.json') as j:
-        dic = json.load(j)
-        
-    for d in dic:
-        str = str.replace(d,dic[d])
+def translate_text(str):
+    if os.path.exists(JSON_FILE_DIR + 'google_translate_v2.json'):
+        with open(JSON_FILE_DIR + 'google_translate_v2.json') as j:
+            dic = json.load(j)
 
+        for d in dic:
+            str = str.replace(d,dic[d])
+    else:
+        str = 'Json file not find, please check the json path'
+    
     return str
     
     
@@ -116,7 +126,7 @@ def translate_file(raw_data):
     data = {}
 
     for key in raw_data.keys():
-        data[key] = json_to_dictionary(raw_data[key])
+        data[key] = translate_text(raw_data[key])
         headers = data[key].iloc[0]
         for ind in range(len(headers)):
             if isinstance(headers[ind], float):
@@ -138,7 +148,6 @@ def translate_file(raw_data):
     print("End.")
 
 
-        
 def change_format_df(data, key):
     data['name'] = data['company'].replace('/', '').replace('㈱Global New Energy Togo', 'Global New Energy Togo') + '_' + data['name']
     data['effective_date'] = ""
@@ -154,13 +163,16 @@ def change_format_df(data, key):
 def main():
     download_file()
     time.sleep(3)
+    
     raw_data = parse_needed_data_from_xl(DATAFILES_DIR + 'owner_raw.xlsx')
     time.sleep(3)
-    create_json(raw_data)
-    time.sleep(3)
+    
+    if use_translation_api:
+        update_json(raw_data)
+        time.sleep(3)
+        
     translate_file(raw_data)
 
 
 if __name__ == '__main__':
     main()
-
